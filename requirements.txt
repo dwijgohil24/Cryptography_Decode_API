@@ -1,6 +1,6 @@
 flask
 werkzeug
-opencv-python
+opencv-python-headless
 numpy
 imutils
 gunicorn
