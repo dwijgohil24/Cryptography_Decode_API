@@ -52,4 +52,6 @@ def xor_images():
     return send_file(result_path, mimetype="image/bmp")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=False, port=3000)
+    from os import environ
+    port = int(environ.get("PORT", 3000))
+    app.run(host="0.0.0.0", debug=False, port=port)
