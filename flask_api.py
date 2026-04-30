@@ -1,6 +1,7 @@
 import os
 import hashlib
 import logging
+import imutils
 from flask import Flask, request, jsonify, send_file
 import cv2
 from werkzeug.utils import secure_filename
@@ -77,16 +78,19 @@ def xor_images():
 
     # -------- Rotation --------
     name = filename2.lower()
-
+    
     if "bmp2" in name:
-        logger.info("Applying 90° rotation")
-        img2 = cv2.rotate(img2, cv2.ROTATE_90_CLOCKWISE)
+        logger.info("Applying 90° rotation (imutils)")
+        img2 = imutils.rotate(img2, 90)
+    
     elif "bmp3" in name:
-        logger.info("Applying 180° rotation")
-        img2 = cv2.rotate(img2, cv2.ROTATE_180)
+        logger.info("Applying 180° rotation (imutils)")
+        img2 = imutils.rotate(img2, 180)
+    
     elif "bmp4" in name:
-        logger.info("Applying 270° rotation")
-        img2 = cv2.rotate(img2, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        logger.info("Applying 270° rotation (imutils)")
+        img2 = imutils.rotate(img2, 270)
+    
     else:
         logger.info("No rotation applied")
 
