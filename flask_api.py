@@ -1,10 +1,7 @@
-import math
 import os
 import hashlib
 import logging
 from flask import Flask, request, jsonify, send_file
-import imutils
-import numpy as np
 import cv2
 from werkzeug.utils import secure_filename
 
@@ -24,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 def file_hash(path):
-    """Return md5 hash of file to verify exact bytes"""
     with open(path, "rb") as f:
         return hashlib.md5(f.read()).hexdigest()
 
@@ -52,32 +48,35 @@ def xor_images():
     image1.save(path1)
     image2.save(path2)
 
-    # -------- File-level debugging --------
-    size1 = os.path.getsize(path1)
-    size2 = os.path.getsize(path2)
-
-    logger.info(f"File sizes → image1: {size1} bytes, image2: {size2} bytes")
-    logger.info(f"File hashes → image1: {file_hash(path1)}, image2: {file_hash(path2)}")
+    # -------- File debugging --------
+    logger.info(f"File sizes → {os.path.getsize(path1)}, {os.path.getsize(path2)}")
+    logger.info(f"Hashes → {file_hash(path1)}, {file_hash(path2)}")
 
     # -------- Read images --------
     img1 = cv2.imread(path1, cv2.IMREAD_UNCHANGED)
     img2 = cv2.imread(path2, cv2.IMREAD_UNCHANGED)
 
     if img1 is None or img2 is None:
-        logger.error("Failed to read one or both images")
+        logger.error("Failed to read images")
         return jsonify({"error": "Invalid images"}), 400
 
-    logger.info(f"IMG1 shape: {img1.shape}, dtype: {img1.dtype}")
-    logger.info(f"IMG2 shape: {img2.shape}, dtype: {img2.dtype}")
+    logger.info(f"IMG1 shape: {img1.shape}")
+    logger.info(f"IMG2 shape: {img2.shape}")
 
-    # -------- Shape check --------
-    if img1.shape != img2.shape:
-        logger.warning("Shape mismatch detected")
-        return jsonify({"error": "Images must have the same dimensions"}), 400
+    # -------- 🔥 CRITICAL FIX: normalize channels --------
+    # Convert RGBA → BGR if needed
+    if len(img1.shape) == 3 and img1.shape[2] == 4:
+        logger.info("Converting IMG1 from 4-channel to 3-channel")
+        img1 = cv2.cvtColor(img1, cv2.COLOR_BGRA2BGR)
 
-    # -------- Rotation logic --------
+    if len(img2.shape) == 3 and img2.shape[2] == 4:
+        logger.info("Converting IMG2 from 4-channel to 3-channel")
+        img2 = cv2.cvtColor(img2, cv2.COLOR_BGRA2BGR)
+
+    logger.info(f"After normalization → IMG1: {img1.shape}, IMG2: {img2.shape}")
+
+    # -------- Rotation --------
     name = filename2.lower()
-    logger.info(f"Checking rotation for filename: {name}")
 
     if "bmp2" in name:
         logger.info("Applying 90° rotation")
@@ -91,12 +90,15 @@ def xor_images():
     else:
         logger.info("No rotation applied")
 
-    logger.info(f"IMG2 shape after rotation: {img2.shape}")
+    # -------- Ensure same dimensions AFTER rotation --------
+    if img1.shape != img2.shape:
+        logger.warning("Resizing img2 to match img1")
+        img2 = cv2.resize(img2, (img1.shape[1], img1.shape[0]))
 
     # -------- XOR --------
     try:
         xor_result = cv2.bitwise_xor(img1, img2)
-        logger.info("XOR computation successful")
+        logger.info("XOR successful")
     except Exception as e:
         logger.error(f"XOR failed: {e}")
         return jsonify({"error": "XOR failed"}), 500
@@ -105,7 +107,6 @@ def xor_images():
     result_path = os.path.join(RESULT_FOLDER, "xor_result.bmp")
     cv2.imwrite(result_path, xor_result)
 
-    logger.info(f"Result saved at: {result_path}")
     logger.info("==== XOR Completed ====")
 
     return send_file(result_path, mimetype="image/bmp")
